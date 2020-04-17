@@ -9,3 +9,12 @@ It makes the most sense and it is easy to work. 24bits equates to a byte for eac
 
 ### Why Bitmap?
 The documentation is relatively easy to follow and it is a fairly simple file type to deal with.
+
+#### Original (Credit - PEI Association for Newcomers to Canada)
+![original](https://github.com/Dara-O/PhotoCrypt/blob/master/driver's%20license%20%20(credit%20-%20PEI%20Association%20for%20Newcomers%20to%20Canada)_original.bmp)
+
+#### Encrypted
+![encrypted](https://github.com/Dara-O/PhotoCrypt/blob/master/driver's%20license%20%20(credit%20-%20PEI%20Association%20for%20Newcomers%20to%20Canada)_encrypted.bmp)
+  
+#### Decrypted
+![decrypted](https://github.com/Dara-O/PhotoCrypt/blob/master/driver's%20license%20%20(credit%20-%20PEI%20Association%20for%20Newcomers%20to%20Canada)_encrypted_decrypted.bmp)
