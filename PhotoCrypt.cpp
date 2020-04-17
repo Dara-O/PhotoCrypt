@@ -1,15 +1,14 @@
 /*
     PROGRAM NAME: PhotoCrypt
     DATE CREATED:  20 October 2019
-    LAST DATE MODIFIED: 24 October 2019
-    PROGRAMMER: ISAAC (DARA) OGUNMOLA
+    LAST DATE MODIFIED: 16 April 2020
+    AUTHOR: ISAAC (DARA) OGUNMOLA
 
     DESCRIPTION:
         This program Encrypts pictures by changing their RGB values.
         It only works with 24-bit, '.bmp' photos.
         It requires a user-provided encryption key to encrypt and decrypt photos
-        It has user-input validation techniques
-
+        It validates user-input.
 */
 
 #include <iostream>
@@ -17,6 +16,7 @@
 #include <vector>
 #include <cstdlib>
 #include <limits>
+#include <string>
 
 using namespace std;
 
@@ -63,7 +63,7 @@ public:
         {
             // Print an error and exit
             cerr << "*** FILE ERROR ***\n"
-                 << "Uh oh, " << fileName << "could not be opened for writing!"
+                 << "Uh oh, " << fileName << " could not be opened for writing!"
                  << endl;
             exit(1);
         }
@@ -140,6 +140,9 @@ public:
         //read to importantColors
         file.read((char*)&importantColors, 4);
 
+        // for performance reasons
+        uint_fast8_t e[3];
+
         // populate the pixel array
         // outer loop for each row
         for(uint32_t scanlineIndex = 0; scanlineIndex < height; ++scanlineIndex)
@@ -147,20 +150,13 @@ public:
             // inner loop for each pixel
             for(uint32_t pixelIndex = 0; pixelIndex < width; ++pixelIndex)
             {
-                uint8_t b;
-                uint8_t g;
-                uint8_t r;
+                file.read((char*)&e, 3);
 
-                file.read((char*)&b, 1);
-                file.read((char*)&g, 1);
-                file.read((char*)&r, 1);
-
-                pixelArray.push_back(Pixel(b, g, r));
+                pixelArray.push_back(Pixel(e[0], e[1], e[2]));
             }
 
             // take the padding out
-            for(uint8_t i = 0; i < padding; ++i)
-                file.read((char*)&paddingDump, 1);
+            file.read((char*)&paddingDump, padding);
         }
 
     }
@@ -268,8 +264,7 @@ public:
             paddingDump = 0;
 
             // write the padding
-            for(uint8_t i = 0; i < padding; ++i)
-                file.write((char*)&paddingDump, 1);
+            file.write((char*)&paddingDump, padding);
         }
     }
 };
@@ -324,6 +319,54 @@ void decrypt(vector<Pixel>& pixelArray, int key)
     }
 }
 
+vector<string> split(string text, string separator)
+{
+    vector<string> parts;
+    parts.clear();
+
+    const int gap = separator.size();
+    int start = 0;
+    int found_index = text.find(separator, start);
+
+    while(found_index != string::npos)
+    {
+        if(start != found_index)
+            parts.push_back(text.substr(start, found_index-start));
+
+        start = found_index + gap;
+        found_index = text.find(separator, start);
+    }
+
+    parts.push_back(text.substr(start));
+    return parts;
+
+}
+
+
+int getKey()
+{
+    string s_key;
+    int i_key = 0;
+    do
+    {
+        if(cin.fail())
+        {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(),'\n');
+
+            cout << "\n*** Invalid input! ***\n";
+
+        }
+
+        cout << "\nPlease enter your alphanumerical encryption key (no spaces): ";
+        cin  >> s_key;
+
+    }while(cin.fail());
+
+    for(char c : s_key)
+        i_key += static_cast<int>(c);
+}
+
 int main()
 {
     // WELCOME MESSAGE
@@ -331,6 +374,10 @@ int main()
     cout << "To encrypt a photo, type '1' and press enter\n";
     cout << "To decrypt a photo, type '2' and press enter\n";
     cout << "Choice: ";
+
+    // see the end of the code.
+    string esc;
+    const string sep = "\" \"";
 
     int choice;
     while(true)
@@ -363,72 +410,69 @@ int main()
         cout << "\t- It must be in the same folder as this application.\n";
         cout << "\t- The file name must end in '.bmp'\n\n";
 
-        cout << "Enter the name of the file\n"
-             << "(make sure that it is in the same folder as this application).\n";
-        cout << "Filename: ";
+        cout << "\n==================================================================\n";
 
-        string sourceFileName;
+        cout << "Enter the name of the file in speech marks (\"\").\n"
+             << "To encrypt multiple files separate each file name with a space\n"
+             << "Ex:\n"
+             << "\t\"file1.bmp\" \"file2.bmp\"\n"
+             << "Ensure that it is in the same folder as this application.\n\n";
+        cout << "Filename(s): ";
+
+        string files;
         cin.ignore();
-        getline(cin, sourceFileName);
+        getline(cin, files);
 
-        cout << "\n==================================================================\n";
-
-        cout << "Opening the file...\n";
-
-        // CREATE THE BMPImage Object
-        BMPImage pic(sourceFileName);
-
-        // SHAVE OFF THE ".bmp" FROM THE FILE NAME
-        sourceFileName.erase(sourceFileName.size()-4);
-
-        cout << "File opened successfully.\n";
-
-        cout << "\n==================================================================\n";
-
-        cout << "Your image has " << pic.pixelArray.size() << " pixels.\n";
-
-        cout << "\n==================================================================\n";
-
-        // GET THE ENCRYPTION KEY
-        int key;
-        do
+        if(files[0] != '"' || files[files.size()-1] != '"')
         {
-            if(cin.fail())
-            {
-                cin.clear();
-                cin.ignore(numeric_limits<streamsize>::max(),'\n');
+            cout << "Incorrect input!\n";
+            cout << "Usage:\n";
+            cout << "\t\"file1.bmp\" \"file2.bmp\"\n";
+            cout << "Note that the file names are separated by a single space\n"
+                 << "and each file name is surrounded speech marks (\"\").\n";
 
-                cout << "\n*** Invalid input! ***\n";
+            getline(cin, esc);
+            exit(1);
+        }
 
-            }
+        // Shave off the fist and last speech marks (i.e. ")
+        files.erase(0, 1);
+        files.erase(files.size()-1, 1);
+        vector<string>&& parts = split(files, sep);
 
-            cout << "\nPlease enter your encryption key (numbers only): ";
-            cin  >> key;
+        int key = getKey();
 
-        }while(cin.fail());
+        for(auto sourceFileName : parts)
+        {
+            // SHAVE OFF THE ".bmp" FROM THE FILE NAME
+            sourceFileName.erase(sourceFileName.size()-4);
 
-        cout << "Key accepted.\n";
+            cout << "\n==================================================================\n";
 
-        cout << "\n==================================================================\n";
+            cout << "Opening " << sourceFileName << ".bmp ...\n";
 
-        cout << "Encrypting the Image..\n";
+            // CREATE THE BMPImage Object
+            BMPImage pic(sourceFileName + ".bmp");
 
-        // ENCRYPTING THE IMAGE
-        encrypt(pic.pixelArray, key);
+            cout << "File opened successfully.\n";
+            cout << "Your image has " << pic.pixelArray.size() << " pixels.\n";
+            cout << "Encrypting "  << sourceFileName << ".bmp ...\n";
 
-        cout << "Image successfully encrypted.\n";
+            // ENCRYPTING THE IMAGE
+            encrypt(pic.pixelArray, key);
 
-        cout << "\n==================================================================\n";
+            cout << "Image successfully encrypted.\n";
 
-        cout << "Creating encrypted image...\n";
+            cout << "Creating encrypted image...\n";
 
-        // CREATING THE ENCRYPTED IMAGE
-        pic.write(sourceFileName+"_encrypted.bmp");
+            // CREATING THE ENCRYPTED IMAGE
+            pic.write(sourceFileName+"_encrypted.bmp");
 
-        cout << "Encrypted image successfully created.\n\n";
-        cout << "File name: " << sourceFileName+"_encrypted.bmp" << endl;
+            cout << "Encrypted image successfully created.\n\n";
+            cout << "File name: " << sourceFileName+"_encrypted.bmp" << endl;
 
-        cout << "\n==================================================================\n";
+            cout << "\n==================================================================\n";
+        }
     }
 
     // DECRYPT A PHOTO CHOICE
@@ -441,71 +485,72 @@ int main()
         cout << "\t- It must be in the same folder as this application.\n";
         cout << "\t- The file name must end in '.bmp'\n\n";
 
-        cout << "\nEnter the file name of the encrypted image: ";
+        cout << "\n==================================================================\n";
 
-        string encryptedFileName;
+        cout << "Enter the name of the file in speech marks (\"\").\n"
+             << "To decrypt multiple files separate each file name with spaces\n"
+             << "Ex:\n"
+             << "\t\"file1.bmp\" \"file2.bmp\"\n"
+             << "Ensure that it is in the same folder as this application.\n\n";
+        cout << "Enter the file name(s) of the encrypted image(s): ";
+
+        string files;
         cin.ignore();
-        getline(cin, encryptedFileName);
+        getline(cin, files);
 
-        cout << "\n==================================================================\n";
-
-        cout << "Opening the encrypted Image...\n";
-
-        // CREATE THE BMPImage Object
-        BMPImage pic(encryptedFileName);
-
-        // SHAVE OFF THE ".bmp" FROM THE FILE NAME
-        encryptedFileName.erase(encryptedFileName.size()-4);
-
-        cout << "Image successfully opened.\n";
-
-        cout << "\n==================================================================\n";
-
-        // GET THE DECRYPTION KEY
-        int key;
-        do
+        if(files[0] != '"' || files[files.size()-1] != '"')
         {
-            if(cin.fail())
-            {
-                cin.clear();
-                cin.ignore(numeric_limits<streamsize>::max(),'\n');
+            cout << "Incorrect input!\n";
+            cout << "Usage:\n";
+            cout << "\t\"file1.bmp\" \"file2.bmp\"\n";
+            cout << "Note that the file names are separated by a single space\n"
+                 << "and each file name is surrounded speech marks (\"\").\n";
 
-                cout << "\n*** Invalid input! ***\n";
+            getline(cin, esc);
+            exit(1);
+        }
 
-            }
+        files.erase(0, 1);
+        files.erase(files.size()-1, 1);
+        vector<string>&& parts = split(files, sep);
 
-            cout << "\nPlease enter your encryption key (numbers only): ";
-            cin  >> key;
+        int key = getKey();
 
-        }while(cin.fail());
+        for(auto encryptedFileName : parts)
+        {
+            // SHAVE OFF THE ".bmp" FROM THE FILE NAME
+            encryptedFileName.erase(encryptedFileName.size()-4);
 
-        cout << "Key accepted.\n";
+            cout << "\n==================================================================\n";
 
-        cout << "\n==================================================================\n";
+            cout << "Opening the encrypted Image...\n";
 
-        cout << "Decrypting image...\n";
+            // CREATE THE BMPImage Object
+            BMPImage pic(encryptedFileName + ".bmp");
 
-        // DECRPYT THE PHOTO
-        decrypt(pic.pixelArray, key);
+            cout << "File successfully opened.\n";
 
-        cout << "Image successfully decrypted.\n";
+            cout << "Decrypting image...\n";
 
-        cout << "\n==================================================================\n";
+            // DECRPYT THE PHOTO
+            decrypt(pic.pixelArray, key);
 
-        cout << "Creating decrypted Image...\n";
+            cout << "Image successfully decrypted.\n";
 
-        // WRITE THE DECRYPTED IMAGE
-        pic.write(encryptedFileName+"_decrypted.bmp");
+            cout << "Creating decrypted Image...\n";
 
-        cout << "Decrypted image successfully created.\n\n";
-        cout << "File name: " << encryptedFileName + "_decrypted.bmp\n";
+            // WRITE THE DECRYPTED IMAGE
+            pic.write(encryptedFileName+"_decrypted.bmp");
 
-        cout << "\n==================================================================\n";
+            cout << "Decrypted image successfully created.\n\n";
+            cout << "File name: " << encryptedFileName + "_decrypted.bmp\n";
+
+            cout << "\n==================================================================\n";
+        }
+
     }
 
-
     // PREVENT THE CONSOLE FROM CLOSING
-    string esc;
     cout << "\n\nPress enter to close the program...";
     cin.ignore();
     getline(cin, esc);
